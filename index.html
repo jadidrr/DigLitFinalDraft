@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Room That Remembers</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Spectral:ital,wght@0,300;0,400;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #1a140e;
+    --bg-mid:  #2a1f15;
+    --bg-warm: #3a2a1c;
+    --amber:   #c9a36b;
+    --amber-soft: #d8b988;
+    --paper:   #ece2cf;
+    --ink:     #2b1d12;
+    --dusk:    #4a3424;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden; }
+  body {
+    background:
+      radial-gradient(ellipse at 50% 30%, #4a3018 0%, #1a120a 70%, #0a0604 100%);
+    color: var(--paper);
+    font-family: 'Spectral', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle film grain overlay */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(255,210,150,0.04) 1px, transparent 1px);
+    background-size: 3px 3px;
+    mix-blend-mode: overlay;
+    z-index: 9999;
+  }
+
+  /* === Audio toggle === */
+  #audio-toggle {
+    position: fixed; top: 18px; right: 22px; z-index: 1000;
+    background: rgba(20,14,8,0.5);
+    color: var(--amber-soft);
+    border: 1px solid rgba(201,163,107,0.3);
+    border-radius: 999px; padding: 8px 14px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px; letter-spacing: 0.1em;
+    cursor: pointer; backdrop-filter: blur(6px);
+    transition: all 0.4s ease;
+  }
+  #audio-toggle:hover { background: rgba(201,163,107,0.15); color: var(--paper); }
+
+  /* === Screens === */
+  .screen {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 28px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 1.4s ease;
+    position: absolute; inset: 0;
+  }
+  .screen.active { opacity: 1; pointer-events: auto; position: relative; }
+
+  /* === Title screen === */
+  #title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 6vw, 4.6rem);
+    letter-spacing: 0.04em;
+    color: var(--paper);
+    text-align: center;
+    margin: 0 0 18px;
+    text-shadow: 0 0 30px rgba(201,163,107,0.25);
+    line-height: 1.1;
+  }
+  #title .subtitle {
+    font-style: italic;
+    color: var(--amber-soft);
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    margin: 0 0 60px;
+    letter-spacing: 0.06em;
+    text-align: center;
+    max-width: 580px;
+  }
+  #title .opener {
+    font-family: 'Spectral', serif;
+    font-weight: 300;
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    line-height: 1.9;
+    color: rgba(236,226,207,0.85);
+    max-width: 560px;
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .door-button {
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber-soft);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem; letter-spacing: 0.18em;
+    padding: 14px 38px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.6s ease;
+    position: relative;
+  }
+  .door-button:hover {
+    background: rgba(201,163,107,0.12);
+    color: var(--paper);
+    letter-spacing: 0.24em;
+    box-shadow: 0 0 30px rgba(201,163,107,0.25);
+  }
+
+  /* === Room screen === */
+  #room { padding: 28px 20px 60px; }
+  .room-instructions {
+    font-style: italic;
+    color: var(--amber-soft);
+    text-align: center;
+    font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+    margin-bottom: 22px;
+    max-width: 620px;
+    line-height: 1.6;
+  }
+  .word-tray {
+    display: flex; gap: 18px; justify-content: center;
+    margin-bottom: 30px;
+  }
+  .word-slot {
+    min-width: 100px;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(201,163,107,0.4);
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--amber-soft);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    transition: all 0.8s ease;
+    min-height: 32px;
+  }
+  .word-slot.filled {
+    color: var(--paper);
+    border-bottom-color: var(--amber);
+    text-shadow: 0 0 12px rgba(201,163,107,0.4);
+  }
+
+  .room-canvas {
+    width: 100%;
+    max-width: 1000px;
+    aspect-ratio: 5 / 3;
+    position: relative;
+  }
+  .room-canvas svg {
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .object {
+    cursor: pointer;
+    transition: filter 0.5s ease, transform 0.5s ease;
+    transform-origin: center center;
+    transform-box: fill-box;
+  }
+  .object:hover {
+    filter: drop-shadow(0 0 14px rgba(255,210,140,0.55))
+            brightness(1.18);
+    transform: scale(1.03);
+  }
+  .object.visited {
+    filter: brightness(0.62) saturate(0.7);
+    cursor: default;
+  }
+  .object.visited:hover {
+    transform: none;
+    filter: brightness(0.62) saturate(0.7);
+  }
+
+  .object-label {
+    fill: var(--amber-soft);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-style: italic;
+    text-anchor: middle;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .object-group:hover .object-label { opacity: 1; }
+
+  /* === Passage screen === */
+  #passage {
+    padding: 60px 28px;
+    justify-content: flex-start;
+  }
+  .passage-frame {
+    max-width: 680px;
+    width: 100%;
+    background: linear-gradient(180deg, rgba(236,226,207,0.97) 0%, rgba(220,205,180,0.94) 100%);
+    color: var(--ink);
+    padding: 60px 56px;
+    border-radius: 2px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,0.5),
+      inset 0 0 60px rgba(180,140,90,0.15);
+    position: relative;
+    margin-top: 30px;
+  }
+  .passage-frame::before {
+    content: "";
+    position: absolute; inset: 8px;
+    border: 1px solid rgba(74,52,36,0.18);
+    pointer-events: none;
+  }
+  .passage-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.4rem;
+    color: var(--dusk);
+    text-align: center;
+    margin: 0 0 4px;
+    letter-spacing: 0.1em;
+  }
+  .passage-divider {
+    width: 60px;
+    height: 1px;
+    background: var(--dusk);
+    margin: 18px auto 32px;
+    opacity: 0.4;
+  }
+  .passage-text {
+    font-family: 'Spectral', serif;
+    font-size: 1.12rem;
+    line-height: 1.85;
+    color: var(--ink);
+    text-align: left;
+  }
+  .passage-text p { margin: 0 0 1.1em; }
+  .passage-text .lift {
+    font-weight: 500;
+    color: #5a3a18;
+    background: linear-gradient(180deg, transparent 60%, rgba(201,163,107,0.45) 60%);
+    padding: 0 2px;
+  }
+  .word-gift {
+    margin-top: 38px;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--dusk);
+    letter-spacing: 0.05em;
+  }
+  .word-gift strong {
+    display: block;
+    margin-top: 12px;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 1.8rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .return-button {
+    display: block;
+    margin: 36px auto 0;
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber-soft);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem; letter-spacing: 0.18em;
+    padding: 12px 30px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.5s ease;
+  }
+  .return-button:hover {
+    background: rgba(201,163,107,0.15);
+    color: var(--paper);
+    letter-spacing: 0.24em;
+  }
+
+  /* === Ending screen === */
+  #ending {
+    text-align: center;
+    padding: 80px 28px;
+  }
+  .ending-pre {
+    font-style: italic;
+    color: var(--amber-soft);
+    max-width: 600px;
+    line-height: 1.9;
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    margin-bottom: 50px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 1.6s ease;
+  }
+  .ending-line {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+    line-height: 1.5;
+    color: var(--paper);
+    max-width: 820px;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 30px rgba(201,163,107,0.25);
+  }
+  .ending-line .gathered {
+    color: var(--amber);
+    font-style: italic;
+    font-weight: 500;
+  }
+  .ending-line .gathered.appear {
+    animation: bloom 2s ease forwards;
+  }
+  @keyframes bloom {
+    0% { opacity: 0; filter: blur(6px); }
+    100% { opacity: 1; filter: blur(0); }
+  }
+  .ending-coda {
+    margin-top: 60px;
+    font-style: italic;
+    color: var(--amber-soft);
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    opacity: 0;
+    transition: opacity 2s ease;
+  }
+  .restart-button {
+    margin-top: 50px;
+    background: transparent;
+    border: 1px solid rgba(201,163,107,0.5);
+    color: var(--amber-soft);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.95rem; letter-spacing: 0.2em;
+    padding: 10px 26px;
+    cursor: pointer;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: all 0.6s ease;
+  }
+  .restart-button:hover {
+    color: var(--paper);
+    border-color: var(--amber);
+  }
+
+  /* === Animations === */
+  @keyframes flicker {
+    0%, 100% { opacity: 0.85; }
+    47% { opacity: 0.85; }
+    50% { opacity: 0.55; }
+    53% { opacity: 0.85; }
+  }
+  .lamp-glow { animation: flicker 6s infinite ease-in-out; }
+
+  @keyframes drift {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+  .dust { animation: drift 4s ease-in-out infinite; }
+
+  @media (max-width: 640px) {
+    .passage-frame { padding: 40px 28px; }
+    .word-tray { flex-wrap: wrap; gap: 10px; }
+    .word-slot { min-width: 80px; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+
+<button id="audio-toggle" aria-label="Toggle ambient sound">♪ ambient</button>
+
+<!-- =================== TITLE =================== -->
+<section id="title" class="screen active">
+  <h1>The Room That Remembers</h1>
+  <p class="subtitle">An interactive memory, in three objects.</p>
+  <p class="opener">
+    You haven't been here in a long time. The light is the colour of late afternoon
+    even though it shouldn't be. Three things in this room are waiting for you to notice them.
+    There is no rush. There is no wrong order.
+  </p>
+  <button class="door-button" id="enter-btn">Open the door</button>
+</section>
+
+<!-- =================== ROOM =================== -->
+<section id="room" class="screen">
+  <p class="room-instructions">
+    Touch each object, in any order. Each one will give you a word.
+  </p>
+  <div class="word-tray" id="word-tray">
+    <div class="word-slot" data-slot="desk">·</div>
+    <div class="word-slot" data-slot="mirror">·</div>
+    <div class="word-slot" data-slot="box">·</div>
+  </div>
+
+  <div class="room-canvas">
+    <svg viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" aria-label="A dim room with a desk, a mirror, and a box on the floor">
+      <defs>
+        <radialGradient id="lamp" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffd28a" stop-opacity="0.55"/>
+          <stop offset="60%" stop-color="#c9a36b" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="#3a2a1c" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3a2818"/>
+          <stop offset="100%" stop-color="#1f1610"/>
+        </linearGradient>
+        <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a1108"/>
+          <stop offset="100%" stop-color="#0a0604"/>
+        </linearGradient>
+        <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5a3e22"/>
+          <stop offset="100%" stop-color="#3a2614"/>
+        </linearGradient>
+        <linearGradient id="mirrorGlass" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#5a4a3a" stop-opacity="0.8"/>
+          <stop offset="50%" stop-color="#867460" stop-opacity="0.7"/>
+          <stop offset="100%" stop-color="#3a2a1c" stop-opacity="0.85"/>
+        </linearGradient>
+        <linearGradient id="boxGold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#a07840"/>
+          <stop offset="100%" stop-color="#5a3a18"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Wall -->
+      <rect x="0" y="0" width="1000" height="420" fill="url(#wall)"/>
+      <!-- Floor -->
+      <polygon points="0,420 1000,420 1000,600 0,600" fill="url(#floor)"/>
+      <!-- Floor seam -->
+      <line x1="0" y1="420" x2="1000" y2="420" stroke="#0a0604" stroke-width="1.5" opacity="0.7"/>
+
+      <!-- Faint window panel on back wall (atmospheric, not interactive) -->
+      <g opacity="0.35">
+        <rect x="430" y="80" width="140" height="180" fill="#2a1f15" stroke="#866040" stroke-width="2"/>
+        <line x1="500" y1="80" x2="500" y2="260" stroke="#866040" stroke-width="1.5"/>
+        <line x1="430" y1="170" x2="570" y2="170" stroke="#866040" stroke-width="1.5"/>
+      </g>
+
+      <!-- Lamp pool of light -->
+      <ellipse cx="220" cy="420" rx="280" ry="120" fill="url(#lamp)" class="lamp-glow"/>
+
+      <!-- ===== DESK (left) ===== -->
+      <g class="object-group" data-target="desk" tabindex="0" role="button" aria-label="Examine the desk">
+        <g class="object" id="obj-desk">
+          <!-- Desk top -->
+          <rect x="80" y="320" width="280" height="18" fill="url(#wood)"/>
+          <!-- Front -->
+          <rect x="80" y="338" width="280" height="100" fill="#3a2614"/>
+          <!-- Drawer -->
+          <rect x="100" y="356" width="240" height="36" fill="#4a2e16" stroke="#1a1108" stroke-width="1"/>
+          <circle cx="220" cy="374" r="4" fill="#a07840"/>
+          <!-- Legs -->
+          <rect x="86" y="438" width="14" height="60" fill="#2a1a0c"/>
+          <rect x="340" y="438" width="14" height="60" fill="#2a1a0c"/>
+          <!-- Notebook on desk -->
+          <rect x="180" y="304" width="80" height="18" fill="#86603e" transform="rotate(-3 220 313)"/>
+          <rect x="184" y="306" width="72" height="14" fill="#a08560" transform="rotate(-3 220 313)"/>
+          <!-- Lamp -->
+          <line x1="135" y1="320" x2="135" y2="240" stroke="#5a3e22" stroke-width="3"/>
+          <path d="M 115,240 L 155,240 L 145,210 L 125,210 Z" fill="#86603e" stroke="#3a2614" stroke-width="1"/>
+          <circle cx="135" cy="225" r="6" fill="#ffd28a" opacity="0.9" class="lamp-glow"/>
+          <!-- Pen -->
+          <line x1="270" y1="318" x2="295" y2="312" stroke="#1a1108" stroke-width="2"/>
+        </g>
+        <text x="220" y="528" class="object-label">the desk</text>
+      </g>
+
+      <!-- ===== MIRROR (center-right, on wall) ===== -->
+      <g class="object-group" data-target="mirror" tabindex="0" role="button" aria-label="Look in the mirror">
+        <g class="object" id="obj-mirror">
+          <!-- Frame -->
+          <rect x="700" y="120" width="180" height="240" rx="8" fill="#5a3e22" stroke="#3a2614" stroke-width="3"/>
+          <!-- Inner frame detail -->
+          <rect x="710" y="130" width="160" height="220" rx="4" fill="none" stroke="#a07840" stroke-width="1.5"/>
+          <!-- Glass -->
+          <rect x="720" y="140" width="140" height="200" rx="2" fill="url(#mirrorGlass)"/>
+          <!-- Light reflection in glass -->
+          <ellipse cx="760" cy="200" rx="20" ry="60" fill="#ffd28a" opacity="0.18"/>
+          <ellipse cx="820" cy="280" rx="14" ry="40" fill="#ffd28a" opacity="0.1"/>
+          <!-- Hanging hook -->
+          <line x1="790" y1="120" x2="790" y2="100" stroke="#2a1a0c" stroke-width="1.5"/>
+        </g>
+        <text x="790" y="395" class="object-label">the mirror</text>
+      </g>
+
+      <!-- ===== BOX (foreground, right of desk) ===== -->
+      <g class="object-group" data-target="box" tabindex="0" role="button" aria-label="Open the box">
+        <g class="object" id="obj-box">
+          <!-- Box shadow -->
+          <ellipse cx="540" cy="528" rx="80" ry="10" fill="#000" opacity="0.5"/>
+          <!-- Box body -->
+          <rect x="470" y="460" width="140" height="68" fill="url(#boxGold)" stroke="#3a2614" stroke-width="2"/>
+          <!-- Lid -->
+          <rect x="466" y="448" width="148" height="18" fill="#a07840" stroke="#3a2614" stroke-width="2"/>
+          <!-- Hinge / clasp -->
+          <rect x="534" y="455" width="12" height="20" fill="#5a3a18"/>
+          <circle cx="540" cy="468" r="2" fill="#ffd28a"/>
+          <!-- Decorative band -->
+          <line x1="470" y1="490" x2="610" y2="490" stroke="#5a3a18" stroke-width="1"/>
+          <line x1="470" y1="500" x2="610" y2="500" stroke="#5a3a18" stroke-width="1"/>
+        </g>
+        <text x="540" y="555" class="object-label">the box</text>
+      </g>
+
+      <!-- Subtle floating dust motes -->
+      <g class="dust" opacity="0.5">
+        <circle cx="320" cy="260" r="1.4" fill="#ffd28a"/>
+        <circle cx="420" cy="180" r="1" fill="#ffd28a"/>
+        <circle cx="640" cy="300" r="1.2" fill="#ffd28a"/>
+        <circle cx="180" cy="200" r="1" fill="#ffd28a"/>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- =================== PASSAGE =================== -->
+<section id="passage" class="screen">
+  <div class="passage-frame">
+    <h2 class="passage-title" id="passage-title"></h2>
+    <div class="passage-divider"></div>
+    <div class="passage-text" id="passage-text"></div>
+    <div class="word-gift">
+      The room gives you a word.
+      <strong id="passage-word"></strong>
+    </div>
+    <button class="return-button" id="return-btn">Return to the room</button>
+  </div>
+</section>
+
+<!-- =================== ENDING =================== -->
+<section id="ending" class="screen">
+  <p class="ending-pre" id="ending-pre">
+    You stand in the centre of the room. Outside, the city is doing what it always does.
+    Inside, the air tastes of old paper and dust and something almost like welcome.
+    You whisper it to no one, and to yourself, and to whoever lived here before you forgot
+    you lived here too:
+  </p>
+  <p class="ending-line" id="ending-line">
+    I <span class="gathered" data-w="desk">______</span> what I <span class="gathered" data-w="mirror">______</span>,<br>
+    and <span class="gathered" data-w="box">______</span> what I could not say.
+  </p>
+  <p class="ending-coda" id="ending-coda">— end —</p>
+  <button class="restart-button" id="restart-btn">Begin again</button>
+</section>
+
+<script>
+  // =============== CONTENT ===============
+  const PASSAGES = {
+    desk: {
+      title: "The Desk",
+      word: "WROTE",
+      html: `
+        <p>The drawer still sticks. You jiggle it the same way you used to, half-shoulder,
+        half-prayer, and it gives. Inside, a notebook with your handwriting at twelve —
+        all loops and pressure, the letters leaning the way you used to lean.</p>
+
+        <p>Pages and pages of small, ordinary things. What you ate. What she said. How the cat
+        slept with one paw over its eyes. None of it mattered then. All of it matters now.</p>
+
+        <p>You think of how often you wrote without knowing why, the way some people pray.
+        The pen on the desk has gone dry. The page is still waiting. Somewhere in that
+        cramped, careful script, you find <span class="lift">the proof that you were paying attention all along</span>.</p>
+      `
+    },
+    mirror: {
+      title: "The Mirror",
+      word: "SAW",
+      html: `
+        <p>You don't recognise the face for half a second. Then you do — and that half-second
+        feels longer than a year.</p>
+
+        <p>The mirror is fogged at the edges, age and oil and the soft erosion of being
+        looked into for too long. But the silver in the middle still tells the truth.
+        Your mother's mouth. Your father's worry, set between the brows like a small,
+        permanent comma. <span class="lift">A softness that is entirely your own.</span></p>
+
+        <p>You stand a long time, looking. It is the first honest meeting you've had with
+        yourself in months. You did not know how much you had been avoiding this.
+        You did not know the avoiding had a weight.</p>
+      `
+    },
+    box: {
+      title: "The Box",
+      word: "KEPT",
+      html: `
+        <p>It's small enough to fit in two hands. The hinge complains the way old things
+        complain — not refusing, just remembering.</p>
+
+        <p>Inside: a movie ticket from a film you barely remember seeing. A pressed flower
+        the colour of weak tea. A key that opens nothing now. Three photographs and a button.
+        None of these are valuable. <span class="lift">All of them are unbearable.</span></p>
+
+        <p>You realise you've been carrying the weight of these things in your chest for
+        years without knowing where you set them down. Here. You set them down here, and
+        never came back.</p>
+
+        <p>Until tonight.</p>
+      `
+    }
+  };
+
+  // =============== STATE ===============
+  const state = {
+    visited: { desk: false, mirror: false, box: false },
+    words: { desk: null, mirror: null, box: null }
+  };
+
+  // =============== HELPERS ===============
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  function showScreen(id) {
+    $$('.screen').forEach(s => s.classList.remove('active'));
+    setTimeout(() => $('#' + id).classList.add('active'), 30);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function openPassage(key) {
+    if (state.visited[key]) return;
+    const p = PASSAGES[key];
+    $('#passage-title').textContent = p.title;
+    $('#passage-text').innerHTML = p.html;
+    $('#passage-word').textContent = p.word;
+    showScreen('passage');
+    // Mark visited only when they actually read it
+    state.currentlyReading = key;
+  }
+
+  function returnToRoom() {
+    const key = state.currentlyReading;
+    if (key && !state.visited[key]) {
+      state.visited[key] = true;
+      state.words[key] = PASSAGES[key].word;
+      // Update the room visuals
+      const obj = $('#obj-' + key);
+      if (obj) obj.classList.add('visited');
+      // Update the word tray
+      const slot = document.querySelector('.word-slot[data-slot="' + key + '"]');
+      if (slot) {
+        slot.textContent = PASSAGES[key].word;
+        slot.classList.add('filled');
+      }
+    }
+    state.currentlyReading = null;
+
+    // If all visited, go to ending
+    const allDone = Object.values(state.visited).every(v => v);
+    if (allDone) {
+      setTimeout(showEnding, 400);
+    } else {
+      showScreen('room');
+    }
+  }
+
+  function showEnding() {
+    // Inject the gathered words
+    document.querySelectorAll('.gathered').forEach((el, i) => {
+      const key = el.dataset.w;
+      el.textContent = state.words[key].toLowerCase();
+    });
+    showScreen('ending');
+    // Animate
+    setTimeout(() => {
+      $('#ending-pre').style.opacity = '1';
+      $('#ending-pre').style.transform = 'translateY(0)';
+    }, 400);
+    setTimeout(() => {
+      document.querySelectorAll('.gathered').forEach((el, i) => {
+        setTimeout(() => el.classList.add('appear'), i * 700);
+      });
+    }, 1800);
+    setTimeout(() => {
+      $('#ending-coda').style.opacity = '0.8';
+      $('#restart-btn').style.opacity = '1';
+    }, 5500);
+  }
+
+  function restart() {
+    state.visited = { desk: false, mirror: false, box: false };
+    state.words = { desk: null, mirror: null, box: null };
+    document.querySelectorAll('.object').forEach(o => o.classList.remove('visited'));
+    document.querySelectorAll('.word-slot').forEach(s => {
+      s.textContent = '·';
+      s.classList.remove('filled');
+    });
+    document.querySelectorAll('.gathered').forEach(el => {
+      el.textContent = '______';
+      el.classList.remove('appear');
+    });
+    $('#ending-pre').style.opacity = '0';
+    $('#ending-pre').style.transform = 'translateY(20px)';
+    $('#ending-coda').style.opacity = '0';
+    $('#restart-btn').style.opacity = '0';
+    showScreen('title');
+  }
+
+  // =============== EVENT WIRING ===============
+  $('#enter-btn').addEventListener('click', () => showScreen('room'));
+  $('#return-btn').addEventListener('click', returnToRoom);
+  $('#restart-btn').addEventListener('click', restart);
+
+  document.querySelectorAll('.object-group').forEach(g => {
+    const key = g.dataset.target;
+    g.addEventListener('click', () => openPassage(key));
+    g.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPassage(key); }
+    });
+  });
+
+  // =============== AMBIENT AUDIO (web audio synth, no external assets) ===============
+  let audioCtx = null, ambientNodes = null, audioOn = false;
+  function startAmbient() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+
+    // Two soft sine drones an octave apart
+    const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = 110;
+    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 165;
+    const o3 = ctx.createOscillator(); o3.type = 'sine'; o3.frequency.value = 220;
+
+    // Slow LFO on volume for breathing
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.07;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.04;
+    lfo.connect(lfoGain).connect(master.gain);
+
+    // Lowpass filter for warmth
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 600; filter.Q.value = 0.7;
+
+    o1.connect(filter); o2.connect(filter); o3.connect(filter);
+    filter.connect(master);
+
+    o1.start(); o2.start(); o3.start(); lfo.start();
+    master.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 2);
+
+    ambientNodes = { master, o1, o2, o3, lfo };
+  }
+  function stopAmbient() {
+    if (!ambientNodes) return;
+    const { master, o1, o2, o3, lfo } = ambientNodes;
+    master.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.2);
+    setTimeout(() => {
+      try { o1.stop(); o2.stop(); o3.stop(); lfo.stop(); } catch (_) {}
+      ambientNodes = null;
+    }, 1400);
+  }
+  $('#audio-toggle').addEventListener('click', () => {
+    audioOn = !audioOn;
+    if (audioOn) { startAmbient(); $('#audio-toggle').textContent = '♪ ambient on'; }
+    else        { stopAmbient();  $('#audio-toggle').textContent = '♪ ambient'; }
+  });
+</script>
+</body>
+</html>
